@@ -148,8 +148,17 @@ def add_post_db(id):
         print("Post {id_media} added to database".format(id_media=id_media))
     return 0
 
-def show_my_post_db():
-    pass
+def show_my_post_db(id):
+    sql = "SELECT * FROM media WHERE id_user = {id_user}".format(id_user=id)
+    cursor.execute(sql)
+    media = cursor.fetchall()
+    if len(media) > 0:
+        print("My media:")
+        for media_ in media:
+            print(media_[1])
+    else:
+        print("No media in database!")
+    return 0
 
 # Check exist db
 if not os.path.exists(db_file_name):
@@ -213,4 +222,4 @@ while(True):
     if action == '2':
         add_post_db(id)
     if action == '3':
-        show_my_post_db()
+        show_my_post_db(id)
