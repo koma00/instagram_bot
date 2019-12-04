@@ -2,6 +2,7 @@ from instagram import WebAgentAccount, Account, Media
 import os.path
 import sqlite3
 import time
+import random
 
 db_file_name = "parser.db"
 
@@ -34,8 +35,17 @@ def init_db(db_file_name):
     # Создание таблицы с постами
     cursor.execute("""
         CREATE TABLE media(
+            id INTEGER PRIMARY KEY,
             id_user INTEGER,
             id_media text
+        )
+    """)
+    # Создание таблицы с отметками под постами
+    cursor.execute("""
+        CREATE TABLE comment_media(
+            id_user INTEGER,
+            id_media text,
+            follow text
         )
     """)
     conn.commit()
@@ -155,7 +165,49 @@ def show_my_post_db(id):
     if len(media) > 0:
         print("My media:")
         for media_ in media:
-            print(media_[1])
+            print(media_[2])
+    else:
+        print("No media in database!")
+    return 0
+
+def post_commenting(login, password):
+    sql = "SELECT * FROM media WHERE id_user = {id_user}".format(id_user=id)
+    cursor.execute(sql)
+    posts = cursor.fetchall()
+    if len(posts) > 0:
+        while(1):
+            print("Select media (0 - return menu):")
+            print("id media")
+            for post in posts:
+                print(post[0], " ", post[2])
+            post_id = input()
+            if post_id == '0':
+                return 0
+            sql = "SELECT * FROM media WHERE id = {id} and id_user = {id_user}".format(id = post_id, id_user = id)
+            cursor.execute(sql)
+            post = cursor.fetchall()
+            if len(post) == 1:
+                break
+        agent = WebAgentAccount(login)
+        agent.auth(password)
+        media = Media(post[0][2])
+        sql = """
+            select t1.follow
+            from follows t1
+            left join (
+                select *
+                from comment_media
+                where id_media = {id_media}
+            ) t2
+            on t1.follow = t2.follow
+            where t2.follow is null
+        """.format(id_media=post_id)
+        cursor.execute(sql)
+        follows = cursor.fetchall()
+        for follow in follows:
+            print("@{follow}".format(follow=follow[0]))
+            agent.add_comment(media, "@{follow}".format(follow=follow[0]))
+            time.sleep(random.randint(30*60, 120*60)) #random pause 30..120 min
     else:
         print("No media in database!")
     return 0
@@ -211,6 +263,7 @@ while(True):
     print('1 - Get follows and followers')
     print('2 - Add post to database')
     print('3 - Show my posts in database')
+    print('4 - Post commenting')
     print('0 - Exit')
     action = input()
     if action == '0':
@@ -223,3 +276,5 @@ while(True):
         add_post_db(id)
     if action == '3':
         show_my_post_db(id)
+    if action == '4':
+        post_commenting(login, password)
