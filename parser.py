@@ -31,6 +31,13 @@ def init_db(db_file_name):
             follower text
         )
     """)
+    # Создание таблицы с постами
+    cursor.execute("""
+        CREATE TABLE media(
+            id_user INTEGER,
+            id_media text
+        )
+    """)
     conn.commit()
 
 def get_follows(agent, account, id):
@@ -126,6 +133,24 @@ def get_follows_and_followers(id, user, password):
         
     return 0
 
+def add_post_db(id):
+    print("Input Instagram post id: ", end='')
+    id_media = input()
+    sql = "SELECT count(1) FROM media WHERE id_user = {id_user} and id_media = '{id_media}'".format(id_user=id, id_media=id_media)
+    cursor.execute(sql)
+    count = cursor.fetchone()[0]
+    if count > 0:
+        print("Error! Post exist in database!")
+    else:
+        sql = "INSERT INTO media(id_user, id_media) VALUES ({id_user}, '{id_media}')".format(id_user=id, id_media=id_media)
+        cursor.execute(sql)
+        conn.commit()
+        print("Post {id_media} added to database".format(id_media=id_media))
+    return 0
+
+def show_my_post_db():
+    pass
+
 # Check exist db
 if not os.path.exists(db_file_name):
     init_db(db_file_name)
@@ -172,15 +197,20 @@ id = rows[0][0]
 login = rows[0][1]
 password = rows[0][2]
 
-while (1):
-    while(True):
-        print('What do we do?')
-        print('1 - Get follows and followers')
-        print('0 - Exit')
-        action = input()
-        if action == '0':
-            exit()
-        if action == '1':
-            print('Starting getting follows and followers')
-            get_follows_and_followers(id, login, password)
-            print('Getting follows and followers finished')
+while(True):
+    print('What do we do?')
+    print('1 - Get follows and followers')
+    print('2 - Add post to database')
+    print('3 - Show my posts in database')
+    print('0 - Exit')
+    action = input()
+    if action == '0':
+        exit()
+    if action == '1':
+        print('Starting getting follows and followers')
+        get_follows_and_followers(id, login, password)
+        print('Getting follows and followers finished')
+    if action == '2':
+        add_post_db(id)
+    if action == '3':
+        show_my_post_db()
