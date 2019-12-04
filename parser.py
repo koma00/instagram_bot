@@ -33,13 +33,7 @@ def init_db(db_file_name):
     """)
     conn.commit()
 
-def get_follows_and_followers(id, user, password):
-    account = Account(user)
-
-    agent = WebAgentAccount(user)
-    agent.auth(password)
-
-    print("Starting getting follows")
+def get_follows(agent, account, id):
     pointer = ''
     while pointer != None:
         follows, pointer = agent.get_follows(account, pointer)
@@ -50,7 +44,7 @@ def get_follows_and_followers(id, user, password):
         time.sleep(5)
     conn.commit()
 
-    print("Starting getting followers")
+def get_followers(agent, account, id):
     pointer = ''
     while pointer != None:
         followers, pointer = agent.get_followers(account, pointer)
@@ -60,6 +54,76 @@ def get_follows_and_followers(id, user, password):
             conn.commit()
         time.sleep(5)
     conn.commit()
+
+
+def get_follows_and_followers(id, user, password):
+    account = Account(user)
+
+    agent = WebAgentAccount(user)
+    agent.auth(password)
+
+    print("Starting getting follows")
+    sql = "SELECT count(1) FROM follows WHERE id_user = {id_user}".format(id_user=id)
+    cursor.execute(sql)
+    count = cursor.fetchone()[0]
+    if count > 0:
+        while(True):
+            print("In database storeged {count} follows on user {user}".format(count=count, user=user))
+            print("What do we do?")
+            print("1 - Updated follows")
+            print("2 - Skip getting follows")
+            print("3 - Return menu")
+            print("0 - Exit")
+            action = input()
+            if action == '1':
+                print("Updating follows")
+                sql = "DELETE FROM follows WHERE id_user = {id_user}".format(id_user=id)
+                cursor.execute(sql)
+                get_follows(agent, account, id)
+                print("Getting follows finished")
+                break
+            if action == '2':
+                print("Skip getting follows")
+                break
+            if action == '3':
+                return 0
+            if action == '0':
+                exit()
+    else:
+        get_follows(agent, account, id)
+        print("Getting follows finished")
+
+    print("Starting getting followers")
+    sql = "SELECT count(1) FROM followers WHERE id_user = {id_user}".format(id_user=id)
+    cursor.execute(sql)
+    count = cursor.fetchone()[0]
+    if count > 0:
+        while(True):
+            print("In database storeged {count} followers on user {user}".format(count=count, user=user))
+            print("What do we do?")
+            print("1 - Updated followers")
+            print("2 - Skip getting followers")
+            print("3 - Return menu")
+            print("0 - Exit")
+            action = input()
+            if action == '1':
+                print("Updating followers")
+                sql = "DELETE FROM followers WHERE id_user = {id_user}".format(id_user=id)
+                cursor.execute(sql)
+                get_followers(agent, account, id)
+                print("Getting followers finished")
+                break
+            if action == '2':
+                print("Skip getting followers")
+                break
+            if action == '3':
+                return 0
+            if action == '0':
+                exit()
+    else:
+        get_followers(agent, account, id)
+        print("Getting followers finished")
+        
     return 0
 
 # Check exist db
