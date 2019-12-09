@@ -52,11 +52,11 @@ def init_db(db_file_name):
     """)
     conn.commit()
 
-def get_follows(api, id):
+def get_follows(api, user_id):
     rank_token = api.generate_uuid()
     next_max_id = None
     while (1):
-        followings = api.user_following(1934223257, rank_token, max_id=next_max_id)
+        followings = api.user_following(user_id, rank_token, max_id=next_max_id)
         next_max_id = followings.get('next_max_id')
         for follow in followings.get('users'):
             sql = "INSERT INTO follows VALUES ({id_user}, '{follow}')".format(id_user=id, follow=follow["username"])
@@ -68,11 +68,11 @@ def get_follows(api, id):
     return 0
 
 
-def get_followers(api, id):
+def get_followers(api, user_id):
     rank_token = api.generate_uuid()
     next_max_id = None
     while (1):
-        followers = api.user_followers(1934223257, rank_token, max_id=next_max_id)
+        followers = api.user_followers(user_id, rank_token, max_id=next_max_id)
         next_max_id = followers.get('next_max_id')
         for follower in followers.get('users'):
             sql = "INSERT INTO followers VALUES ({id_user}, '{follower}')".format(id_user=id, follower=follower["username"])
@@ -85,6 +85,7 @@ def get_followers(api, id):
 
 def get_follows_and_followers(id, user, password):
     api = Client(user, password)
+    user_id = api.current_user().get('user').get('pk')
 
     print("Starting getting follows")
     sql = "SELECT count(1) FROM follows WHERE id_user = {id_user}".format(id_user=id)
@@ -103,7 +104,7 @@ def get_follows_and_followers(id, user, password):
                 print("Updating follows")
                 sql = "DELETE FROM follows WHERE id_user = {id_user}".format(id_user=id)
                 cursor.execute(sql)
-                get_follows(api, id)
+                get_follows(api, user_id)
                 print("Getting follows finished")
                 break
             if action == '2':
@@ -114,7 +115,7 @@ def get_follows_and_followers(id, user, password):
             if action == '0':
                 exit()
     else:
-        get_follows(api, id)
+        get_follows(api, user_id)
         print("Getting follows finished")
 
     print("Starting getting followers")
@@ -134,7 +135,7 @@ def get_follows_and_followers(id, user, password):
                 print("Updating followers")
                 sql = "DELETE FROM followers WHERE id_user = {id_user}".format(id_user=id)
                 cursor.execute(sql)
-                get_followers(api, id)
+                get_followers(api, user_id)
                 print("Getting followers finished")
                 break
             if action == '2':
@@ -145,7 +146,7 @@ def get_follows_and_followers(id, user, password):
             if action == '0':
                 exit()
     else:
-        get_followers(api, id)
+        get_followers(api, user_id)
         print("Getting followers finished")
         
     return 0
@@ -185,7 +186,7 @@ def show_my_post_db(id):
         print("No media in database!")
     return 0
 
-def post_commenting(user_name, password):
+def post_commenting(user_name, password, id):
     sql = "SELECT * FROM media WHERE id_user = {id_user}".format(id_user=id)
     cursor.execute(sql)
     posts = cursor.fetchall()
@@ -221,7 +222,16 @@ def post_commenting(user_name, password):
         for follow in follows:
             print("@{follow}".format(follow=follow[0]))
             api.post_comment(media, "@{follow}".format(follow=follow[0]))
-            time.sleep(random.randint(30*60, 120*60)) #random pause 30..120 min
+            sql = """INSERT INTO comment_media(id_user, media_id, follow) VALUES ({id_user}, '{media_id}', '{follow}')""".format(
+                id_user=id,
+                media_id=post_id,
+                follow=follow[0]
+            )
+            cursor.execute(sql)
+            conn.commit()
+            sleep_time = random.randint(30*60, 120*60) #random pause 30..120 min
+            print("Sleep {sleep_time_min} min {sleep_time_sec} sec".format(sleep_time_min=sleep_time//60, sleep_time_sec=sleep_time%60))
+            time.sleep(sleep_time) #random pause 30..120 min
     else:
         print("No media in database!")
     return 0
@@ -291,4 +301,4 @@ while(True):
     if action == '3':
         show_my_post_db(id)
     if action == '4':
-        post_commenting(login, password)
+        post_commenting(login, password, id)
