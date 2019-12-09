@@ -1,8 +1,9 @@
-from instagram import WebAgentAccount, Account, Media
+from instagram_private_api import Client, ClientCompatPatch
 import os.path
 import sqlite3
 import time
 import random
+import requests
 
 db_file_name = "parser.db"
 
@@ -37,47 +38,53 @@ def init_db(db_file_name):
         CREATE TABLE media(
             id INTEGER PRIMARY KEY,
             id_user INTEGER,
-            id_media text
+            media_id text,
+            code_media text
         )
     """)
     # Создание таблицы с отметками под постами
     cursor.execute("""
         CREATE TABLE comment_media(
             id_user INTEGER,
-            id_media text,
+            media_id text,
             follow text
         )
     """)
     conn.commit()
 
-def get_follows(agent, account, id):
-    pointer = ''
-    while pointer != None:
-        follows, pointer = agent.get_follows(account, pointer)
-        for follow in follows:
-            sql = "INSERT INTO follows VALUES ({id_user}, '{follow}')".format(id_user=id, follow=follow)
+def get_follows(api, id):
+    rank_token = api.generate_uuid()
+    next_max_id = None
+    while (1):
+        followings = api.user_following(1934223257, rank_token, max_id=next_max_id)
+        next_max_id = followings.get('next_max_id')
+        for follow in followings.get('users'):
+            sql = "INSERT INTO follows VALUES ({id_user}, '{follow}')".format(id_user=id, follow=follow["username"])
+            cursor.execute(sql)
+            conn.commit()        
+        if not next_max_id:
+            break
+        time.sleep(5)
+    return 0
+
+
+def get_followers(api, id):
+    rank_token = api.generate_uuid()
+    next_max_id = None
+    while (1):
+        followers = api.user_followers(1934223257, rank_token, max_id=next_max_id)
+        next_max_id = followers.get('next_max_id')
+        for follower in followers.get('users'):
+            sql = "INSERT INTO followers VALUES ({id_user}, '{follower}')".format(id_user=id, follower=follower["username"])
             cursor.execute(sql)
             conn.commit()
+        if not next_max_id:
+            break
         time.sleep(5)
-    conn.commit()
-
-def get_followers(agent, account, id):
-    pointer = ''
-    while pointer != None:
-        followers, pointer = agent.get_followers(account, pointer)
-        for follower in followers:
-            sql = "INSERT INTO followers VALUES ({id_user}, '{follower}')".format(id_user=id, follower=follower)
-            cursor.execute(sql)
-            conn.commit()
-        time.sleep(5)
-    conn.commit()
-
+    return 0
 
 def get_follows_and_followers(id, user, password):
-    account = Account(user)
-
-    agent = WebAgentAccount(user)
-    agent.auth(password)
+    api = Client(user, password)
 
     print("Starting getting follows")
     sql = "SELECT count(1) FROM follows WHERE id_user = {id_user}".format(id_user=id)
@@ -96,7 +103,7 @@ def get_follows_and_followers(id, user, password):
                 print("Updating follows")
                 sql = "DELETE FROM follows WHERE id_user = {id_user}".format(id_user=id)
                 cursor.execute(sql)
-                get_follows(agent, account, id)
+                get_follows(api, id)
                 print("Getting follows finished")
                 break
             if action == '2':
@@ -107,7 +114,7 @@ def get_follows_and_followers(id, user, password):
             if action == '0':
                 exit()
     else:
-        get_follows(agent, account, id)
+        get_follows(api, id)
         print("Getting follows finished")
 
     print("Starting getting followers")
@@ -127,7 +134,7 @@ def get_follows_and_followers(id, user, password):
                 print("Updating followers")
                 sql = "DELETE FROM followers WHERE id_user = {id_user}".format(id_user=id)
                 cursor.execute(sql)
-                get_followers(agent, account, id)
+                get_followers(api, id)
                 print("Getting followers finished")
                 break
             if action == '2':
@@ -138,24 +145,32 @@ def get_follows_and_followers(id, user, password):
             if action == '0':
                 exit()
     else:
-        get_followers(agent, account, id)
+        get_followers(api, id)
         print("Getting followers finished")
         
     return 0
 
 def add_post_db(id):
-    print("Input Instagram post id: ", end='')
-    id_media = input()
-    sql = "SELECT count(1) FROM media WHERE id_user = {id_user} and id_media = '{id_media}'".format(id_user=id, id_media=id_media)
+    print("Input Instagram post short_code: ", end='')
+    code_media = input()
+    sql = "SELECT count(1) FROM media WHERE id_user = {id_user} and code_media = '{code_media}'".format(id_user=id, code_media=code_media)
     cursor.execute(sql)
     count = cursor.fetchone()[0]
     if count > 0:
         print("Error! Post exist in database!")
     else:
-        sql = "INSERT INTO media(id_user, id_media) VALUES ({id_user}, '{id_media}')".format(id_user=id, id_media=id_media)
+        url = "https://api.instagram.com/oembed/"
+        params = "callback=&url=https://www.instagram.com/p/{code_media}/".format(code_media=code_media)
+        r = requests.get(url = url, params = params)
+        media_id = r.json()['media_id']
+        sql = "INSERT INTO media(id_user, media_id, code_media) VALUES ({id_user}, '{media_id}', '{code_media}')".format(
+            id_user=id,
+            media_id=media_id,
+            code_media=code_media
+        )
         cursor.execute(sql)
         conn.commit()
-        print("Post {id_media} added to database".format(id_media=id_media))
+        print("Post {code_media} ({media_id}) added to database".format(code_media=code_media, media_id=media_id))
     return 0
 
 def show_my_post_db(id):
@@ -170,7 +185,7 @@ def show_my_post_db(id):
         print("No media in database!")
     return 0
 
-def post_commenting(login, password):
+def post_commenting(user_name, password):
     sql = "SELECT * FROM media WHERE id_user = {id_user}".format(id_user=id)
     cursor.execute(sql)
     posts = cursor.fetchall()
@@ -188,25 +203,24 @@ def post_commenting(login, password):
             post = cursor.fetchall()
             if len(post) == 1:
                 break
-        agent = WebAgentAccount(login)
-        agent.auth(password)
-        media = Media(post[0][2])
+        api = Client(user_name, password)
+        media = post[0][2]
         sql = """
             select t1.follow
             from follows t1
             left join (
                 select *
                 from comment_media
-                where id_media = {id_media}
+                where media_id = {media_id}
             ) t2
             on t1.follow = t2.follow
             where t2.follow is null
-        """.format(id_media=post_id)
+        """.format(media_id=post_id)
         cursor.execute(sql)
         follows = cursor.fetchall()
         for follow in follows:
             print("@{follow}".format(follow=follow[0]))
-            agent.add_comment(media, "@{follow}".format(follow=follow[0]))
+            api.post_comment(media, "@{follow}".format(follow=follow[0]))
             time.sleep(random.randint(30*60, 120*60)) #random pause 30..120 min
     else:
         print("No media in database!")
