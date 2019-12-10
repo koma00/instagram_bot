@@ -232,6 +232,9 @@ def post_commenting(user_name, password, id):
             sleep_time = random.randint(30*60, 120*60) #random pause 30..120 min
             print("Sleep {sleep_time_min} min {sleep_time_sec} sec".format(sleep_time_min=sleep_time//60, sleep_time_sec=sleep_time%60))
             time.sleep(sleep_time) #random pause 30..120 min
+        print('All follows are marked under the post: {post_id}'.format(post_id = post[0][3]))
+        print('Press Enter to return menu')
+        input()
     else:
         print("No media in database!")
     return 0
