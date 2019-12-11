@@ -211,15 +211,21 @@ def post_commenting(user_name, password, id):
         media = post[0][2]
         sql = """
             select t1.follow
-            from follows t1
+            from (
+                select t.follow
+                from follows t
+                left join followers tt
+                on t.follow = tt.follower and t.id_user = {id_user} and tt.id_user = {id_user}
+                where tt.follower is not null
+            ) t1
             left join (
                 select *
                 from comment_media
-                where media_id = {media_id}
+                where id_user = {id_user} and media_id = {media_id}
             ) t2
             on t1.follow = t2.follow
             where t2.follow is null
-        """.format(media_id=post_id)
+        """.format(id_user=id, media_id=post_id)
         cursor.execute(sql)
         follows = cursor.fetchall()
         for follow in follows:
