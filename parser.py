@@ -64,7 +64,7 @@ def get_follows(api, user_id):
             conn.commit()        
         if not next_max_id:
             break
-        time.sleep(5)
+        time.sleep(15)
     return 0
 
 
@@ -72,7 +72,10 @@ def get_followers(api, user_id):
     rank_token = api.generate_uuid()
     next_max_id = None
     while (1):
-        followers = api.user_followers(user_id, rank_token, max_id=next_max_id)
+        if next_max_id == None:
+            followers = api.user_followers(user_id, rank_token)
+        else:
+            followers = api.user_followers(user_id, rank_token, max_id=next_max_id)
         next_max_id = followers.get('next_max_id')
         for follower in followers.get('users'):
             sql = "INSERT INTO followers VALUES ({id_user}, '{follower}')".format(id_user=id, follower=follower["username"])
@@ -80,7 +83,7 @@ def get_followers(api, user_id):
             conn.commit()
         if not next_max_id:
             break
-        time.sleep(5)
+        time.sleep(15)
     return 0
 
 def get_follows_and_followers(id, user, password):
