@@ -228,6 +228,8 @@ def post_commenting(user_name, password, id):
         """.format(id_user=id, media_id=post_id)
         cursor.execute(sql)
         follows = cursor.fetchall()
+        cnt = 0
+        cnt_max = random.randint(2,4)
         for follow in follows:
             print("@{follow}".format(follow=follow[0]))
             api.post_comment(media, "@{follow}".format(follow=follow[0]))
@@ -238,9 +240,15 @@ def post_commenting(user_name, password, id):
             )
             cursor.execute(sql)
             conn.commit()
-            sleep_time = random.randint(30*60, 120*60) #random pause 30..120 min
+            if cnt == cnt_max:
+                sleep_time = random.randint(10*60, 40*60) #random pause 30..120 min
+                cnt = 0
+                cnt_max = random.randint(2,4)
+            else:
+                sleep_time = random.randint(30, 40) #random pause 30..40 sec
+                cnt+=1
             print("Sleep {sleep_time_min} min {sleep_time_sec} sec".format(sleep_time_min=sleep_time//60, sleep_time_sec=sleep_time%60))
-            time.sleep(sleep_time) #random pause 30..120 min
+            time.sleep(sleep_time) #random pause
         print('All follows are marked under the post: {post_id}'.format(post_id = post[0][3]))
         print('Press Enter to return menu')
         input()
