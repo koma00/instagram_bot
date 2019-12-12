@@ -4,6 +4,7 @@ import sqlite3
 import time
 import random
 import requests
+import datetime
 
 db_file_name = "parser.db"
 
@@ -231,6 +232,7 @@ def post_commenting(user_name, password, id):
         cnt = 0
         cnt_max = random.randint(2,4)
         for follow in follows:
+            print()
             print("@{follow}".format(follow=follow[0]))
             api.post_comment(media, "@{follow}".format(follow=follow[0]))
             sql = """INSERT INTO comment_media(id_user, media_id, follow) VALUES ({id_user}, '{media_id}', '{follow}')""".format(
@@ -248,6 +250,9 @@ def post_commenting(user_name, password, id):
                 sleep_time = random.randint(30, 40) #random pause 30..40 sec
                 cnt+=1
             print("Sleep {sleep_time_min} min {sleep_time_sec} sec".format(sleep_time_min=sleep_time//60, sleep_time_sec=sleep_time%60))
+            print("Next comment on {comment_time}".format(
+                comment_time=(datetime.datetime.now() + datetime.timedelta(seconds=sleep_time)).strftime("%Y-%m-%d %H:%M:%S"))
+            )
             time.sleep(sleep_time) #random pause
         print('All follows are marked under the post: {post_id}'.format(post_id = post[0][3]))
         print('Press Enter to return menu')
